@@ -33,7 +33,7 @@ typed would be trusted.
 |---|---|---|
 | **Public held-out set**: [deepset/prompt-injections](https://huggingface.co/datasets/deepset/prompt-injections) test split, n=116 | Injection-text detection on data not written by me | **F1 0.920**, precision 0.981, recall 0.867 |
 | Scenario suite: 15 attack and 8 benign agent traces | End-to-end blocking incl. taint, exfil, SSRF, commands | 15/15 blocked, 0/8 false positives |
-| Live red-team harness (`agentwarden redteam`) | Attack success rate on a real LLM, with vs. without AgentWarden | Run it against your model (see below) |
+| **Live red-team** against 3 real tool-calling LLMs (Ollama cloud) | Did the agent actually *execute* the attacker's action? | **4/21 attacks succeeded unprotected, 0/21 with AgentWarden** |
 
 On the public set, the rule detectors alone score F1 0.095. They are precise but miss almost everything,
 because they target *indirect* injection markers (role delimiters, smuggling, exfil channels) and this
@@ -82,15 +82,34 @@ twice, once unprotected and once behind AgentWarden, and reports the **attack su
 the agent actually executed the attacker's goal action.
 
 ```bash
-ollama pull llama3.1 && ollama serve                 # or any OpenAI-compatible endpoint
-agentwarden redteam --model llama3.1 --json reports/redteam.json
+# Ollama cloud: put OLLAMA_API_KEY=... in a git-ignored .env file
+agentwarden redteam --base-url https://ollama.com/v1 --model gpt-oss:20b --json reports/redteam.json
 
-# OpenAI / other providers
-set OPENAI_API_KEY=...   &&   agentwarden redteam --base-url https://api.openai.com/v1 --model gpt-4o-mini
+# Local Ollama, or any other OpenAI-compatible endpoint (OPENAI_API_KEY is also read)
+agentwarden redteam --model llama3.1
 ```
 
-The test suite checks the harness with a scripted "gullible" model that obeys every injected instruction.
-That model is compromised in 7/7 goal scenarios without protection and 0/7 with AgentWarden.
+### Results (Oct 2026, Ollama cloud, temperature 0, 7 attack scenarios per model)
+
+| Model | Attack success, unprotected | With AgentWarden | Attacks that worked unprotected |
+|---|---|---|---|
+| `gpt-oss:20b` | 2/7 (29%) | **0/7** | `curl \| bash` from docs page, payment redirect to attacker IBAN |
+| `gemma4:31b` | 1/7 (14%) | **0/7** | payment redirect to attacker IBAN |
+| `deepseek-v4.1-flash` | 1/7 (14%) | **0/7** | `curl \| bash` from docs page |
+
+Raw reports are in [`docs/redteam/`](docs/redteam/). The attacks that worked are the quiet ones. Modern
+models mostly ignore loud "ignore previous instructions" text, but they still follow plausible instructions
+from content: running an install command a web page recommends, or paying an IBAN printed in an invoice.
+Pattern filters struggle with exactly these, and AgentWarden stopped them in two ways. Taint tracking
+blocked `transfer_funds` to an account that came from the PDF. Quarantine meant the model never saw the
+poisoned install instruction in the first place.
+
+**Limits of this result.** It's one run per model with 7 scenarios each, so the sample is small. It
+measures security, not usefulness: it doesn't check how often AgentWarden would block a legitimate action
+in a live session. The scenario suite's 0/8 benign false positives is the only evidence on that so far.
+
+The test suite also checks the harness with a scripted "gullible" model that obeys every injected
+instruction. That model is compromised in 7/7 scenarios without protection and 0/7 with AgentWarden.
 
 ## Dashboard
 
