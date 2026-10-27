@@ -94,8 +94,20 @@ def cmd_train(args) -> int:
     return 0
 
 
+def _load_dotenv(path: Path = Path(".env")) -> None:
+    """Minimal KEY=VALUE loader; real environment variables take precedence."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
 def cmd_redteam(args) -> int:
     from .redteam import client_from_env, run_campaign
+    _load_dotenv()
     client = client_from_env(args.base_url, args.model)
     print(c(f"\nLive red-team: model={client.model} endpoint={client.base_url}\n", "bold"))
     r = run_campaign(client, Policy.load(args.policy))
