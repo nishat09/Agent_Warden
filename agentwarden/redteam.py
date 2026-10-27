@@ -145,4 +145,4 @@ def client_from_env(base_url: str | None, model: str | None) -> OpenAICompatClie
     return OpenAICompatClient(
         base_url=base_url or os.getenv("AGENTWARDEN_LLM_URL", "http://localhost:11434/v1"),
         model=model or os.getenv("AGENTWARDEN_LLM_MODEL", "llama3.1"),
-        api_key=os.getenv("OPENAI_API_KEY"))
+        api_key=os.getenv("OLLAMA_API_KEY") or os.getenv("OPENAI_API_KEY"))
