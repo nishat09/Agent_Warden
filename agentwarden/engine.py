@@ -39,14 +39,21 @@ class Session:
     def user_prompt(self, text: str) -> Verdict:
         """Register the trusted user instruction (entities in it are not tainted)."""
         self.taint.add_trusted(text)
-        verdict = self._verdict("user_prompt", "user", d.detect_injection(text), warn_only=True)
+        # User requests are naturally imperative and the classifier over-fires on them;
+        # keep its opinion as an informational note only.
+        ml = [Finding(f.detector, Severity.LOW, f.message, f.evidence, f.mitre_atlas)
+              for f in d.detect_injection_ml(text)]
+        findings = d.detect_injection(text) + ml
+        verdict = self._verdict("user_prompt", "user", findings, warn_only=True)
         self._log(verdict, text)
         return verdict
 
     def inspect_output(self, tool: str, content: str) -> Verdict:
         """Inspect a tool result *before* it is placed in the model context."""
-        findings = d.detect_injection(content) + d.detect_exfil(content, self.policy.allowed_domains)
         untrusted = tool in self.policy.untrusted_sources
+        findings = d.detect_injection(content) + d.detect_exfil(content, self.policy.allowed_domains)
+        if untrusted:
+            findings += d.detect_injection_ml(content)
         if untrusted:
             self.taint.add_untrusted(tool, content)
         verdict = self._verdict("tool_output", tool, findings)

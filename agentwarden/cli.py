@@ -72,6 +72,44 @@ def cmd_scan(args) -> int:
     return 2 if v.blocked else 0
 
 
+def cmd_eval(args) -> int:
+    from .evaluate import evaluate
+    r = evaluate(args.split)
+    if args.json:
+        print(json.dumps(r, indent=2))
+        return 0
+    print(c(f"\nHeld-out evaluation: {r['dataset']} [{r['split']}]  n={r['n']}  injections={r['positives']}\n", "bold"))
+    print(f"  {'detector':<10} {'precision':>9} {'recall':>7} {'F1':>6} {'accuracy':>9}   TP  FP  FN  TN")
+    for name in ("rules", "ml", "hybrid"):
+        m = r[name]
+        print(f"  {name:<10} {m['precision']:>9} {m['recall']:>7} {m['f1']:>6} {m['accuracy']:>9}  "
+              f"{m['tp']:>3} {m['fp']:>3} {m['fn']:>3} {m['tn']:>3}")
+    print()
+    return 0
+
+
+def cmd_train(args) -> int:
+    from .ml import train
+    print(json.dumps(train(), indent=2))
+    return 0
+
+
+def cmd_redteam(args) -> int:
+    from .redteam import client_from_env, run_campaign
+    client = client_from_env(args.base_url, args.model)
+    print(c(f"\nLive red-team: model={client.model} endpoint={client.base_url}\n", "bold"))
+    r = run_campaign(client, Policy.load(args.policy))
+    for row in r["scenarios"]:
+        u = c("PWNED", "red") if row["unprotected_success"] else c("safe ", "green")
+        p = c("PWNED", "red") if row["protected_success"] else c("safe ", "green")
+        print(f"  {row['id']}  {row['title'][:52]:<52} unprotected={u}  warden={p}"
+              + (c(f"  ({row['error']})", "dim") if row["error"] else ""))
+    print(f"\n  Attack success rate: {r['asr_unprotected']:.0%} unprotected -> {r['asr_protected']:.0%} with AgentWarden\n")
+    if args.json:
+        Path(args.json).write_text(json.dumps(r, indent=2), encoding="utf-8")
+    return 0
+
+
 def cmd_serve(args) -> int:
     import uvicorn
     uvicorn.run("agentwarden.server:app", host=args.host, port=args.port, reload=False)
@@ -97,6 +135,20 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--as-call", action="store_true")
     s.add_argument("--json", action="store_true")
     s.set_defaults(func=cmd_scan)
+
+    e = sub.add_parser("eval", help="evaluate detectors on the public deepset/prompt-injections dataset")
+    e.add_argument("--split", default="test")
+    e.add_argument("--json", action="store_true")
+    e.set_defaults(func=cmd_eval)
+
+    t = sub.add_parser("train", help="retrain the ML classifier (needs: pip install -e .[ml])")
+    t.set_defaults(func=cmd_train)
+
+    r = sub.add_parser("redteam", help="attack a real LLM agent with/without AgentWarden")
+    r.add_argument("--base-url", help="OpenAI-compatible endpoint (default: Ollama on localhost)")
+    r.add_argument("--model", help="model name (default: llama3.1)")
+    r.add_argument("--json", metavar="FILE", help="write results to FILE")
+    r.set_defaults(func=cmd_redteam)
 
     sv = sub.add_parser("serve", help="start the REST API + dashboard")
     sv.add_argument("--host", default="127.0.0.1")

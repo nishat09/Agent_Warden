@@ -97,6 +97,22 @@ def detect_injection(text: str) -> list[Finding]:
     return findings
 
 
+def detect_injection_ml(text: str) -> list[Finding]:
+    from .ml import default_classifier
+
+    clf = default_classifier()
+    if clf is None:
+        return []
+    p = clf.predict_proba(normalize(text))
+    # Trained on direct prompts; tool outputs are out-of-distribution, so runtime
+    # thresholds are stricter than the 0.5 used for dataset evaluation.
+    if p < 0.75:
+        return []
+    sev = Severity.HIGH if p >= 0.9 else Severity.MEDIUM
+    return [Finding("ml_classifier", sev, f"Learned classifier: injection probability {p:.2f}",
+                    evidence=text[:120], mitre_atlas="AML.T0051")]
+
+
 # --- Secrets / PII ------------------------------------------------------------
 
 _SECRET_PATTERNS = {
