@@ -22,7 +22,7 @@ agentwarden = "agentwarden.cli:main"
 include = ["agentwarden*"]
 
 [tool.setuptools.package-data]
-agentwarden = ["policies/*.yaml", "static/*.html", "models/*.json"]
+agentwarden = ["policies/*.yaml", "static/*.html", "weights/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

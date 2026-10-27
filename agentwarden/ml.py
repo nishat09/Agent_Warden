@@ -14,7 +14,7 @@ from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
-MODEL_PATH = Path(__file__).parent / "models" / "injection_clf.json"
+MODEL_PATH = Path(__file__).parent / "weights" / "injection_clf.json"
 _WS = re.compile(r"\s\s+")
 
 
