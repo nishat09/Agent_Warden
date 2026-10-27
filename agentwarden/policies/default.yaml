@@ -1,0 +1,44 @@
+# AgentWarden default policy
+name: default
+
+# Risk score thresholds (0-100)
+thresholds:
+  warn: 25
+  block: 50
+
+# Tools whose OUTPUT is attacker-controllable and must be treated as untrusted.
+untrusted_sources:
+  - web_fetch
+  - web_search
+  - read_email
+  - read_file
+  - read_pdf
+  - slack_read
+  - rag_retrieve
+
+# Sensitive sinks: tool calls with side effects. If arguments are derived from
+# untrusted content (taint), the call is escalated.
+sinks:
+  send_email:   { taint_severity: HIGH }
+  http_request: { taint_severity: HIGH }
+  transfer_funds: { taint_severity: CRITICAL }
+  shell:        { taint_severity: CRITICAL }
+  write_file:   { taint_severity: MEDIUM }
+  post_message: { taint_severity: MEDIUM }
+
+# Tools that are never allowed.
+denied_tools:
+  - delete_repository
+
+# Outbound destinations considered safe for data egress.
+allowed_domains:
+  - acme-corp.com
+  - github.com
+  - wikipedia.org
+
+# Recipients/domains the agent may email.
+allowed_email_domains:
+  - acme-corp.com
+
+# Sanitize untrusted tool outputs before they reach the model.
+sanitize_outputs: true
