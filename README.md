@@ -27,6 +27,31 @@ AgentWarden blocks this one because of provenance, not wording. The recipient ad
 an **untrusted email** and is now about to reach a **sensitive sink** (`send_email`). An address the user
 typed would be trusted.
 
+## Who this is for
+
+AgentWarden does not sit inside a model. It sits **around** the agent loop: whatever brain you use,
+if that brain can call tools, the tools are the risk. The model can be local or hosted.
+
+**Local models (Ollama, LM Studio, llama.cpp).** A lot of people now run open models on their own
+machine and wire them to a browser, a terminal, or files. That is the highest-risk setup this project
+targets. The model is on your laptop, the tools can touch your laptop, and smaller local models are
+usually *more* willing to follow instructions they read in a page or an email than a frontier model
+is. AgentWarden is useful here because it does not depend on the vendor having a safety layer. You
+own the loop, so you can inspect every tool result and every tool call. Point the red-team or your
+agent at `http://localhost:11434/v1`. That is the same OpenAI-style API Ollama already exposes.
+
+**Hosted models you wrap yourself (Grok, GPT, Claude, Gemini, …).** If you build an app that calls
+Grok (or any other API) and then lets it send email, run commands, or fetch URLs, AgentWarden applies
+the same way. The firewall never needs to know which company trained the model. What it sees is
+“tool output in” and “tool call out.”
+
+**What it is not.** It does not protect the official Grok app, ChatGPT, or Claude in the browser.
+Those products do not let you insert a third-party firewall into their tool loop. Their own safety
+systems are a separate question. AgentWarden is for **agents you run or you build**.
+
+The live numbers below used Ollama-hosted models with tool calling. The same harness works against a
+local Ollama server if you have one.
+
 ## Results
 
 | Evaluation | What it measures | Result |
